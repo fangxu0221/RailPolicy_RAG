@@ -48,7 +48,7 @@ class KnowledgeTools:
         from ..bootstrap import build_retriever_from_documents, load_retrieval_snapshot
 
         config, documents = load_retrieval_snapshot(config_path)
-        retriever = build_retriever_from_documents(documents, config)
+        retriever = build_retriever_from_documents(documents, config, config_path=config_path)
         return cls(retriever, documents, config)
 
     def search_knowledge(self, query: str, top_k: int = 3) -> dict:

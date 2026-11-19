@@ -13,6 +13,7 @@ from .application.evaluation_service import evaluate_retrieval, evaluate_answers
 from .bootstrap import (
     build_bm25,
     build_embedding,
+    build_qdrant_index,
     build_retriever,
     build_retriever_from_documents,
     load_retrieval_snapshot,
@@ -20,6 +21,7 @@ from .bootstrap import (
 )
 from .frozen import runtime_fingerprint, text_sha256, verify_frozen_dataset
 from .infrastructure.llm.generator import DeepSeekGenerator, OllamaGenerator
+from .infrastructure.storage.qdrant import QdrantIndexError
 from .io import load_evaluation_cases, write_json
 
 
@@ -28,7 +30,7 @@ def run_benchmark(args: argparse.Namespace) -> None:
 
     config_path = Path(args.config)
     config, snapshot = load_retrieval_snapshot(config_path)
-    retriever = build_retriever_from_documents(snapshot, config)
+    retriever = build_retriever_from_documents(snapshot, config, config_path=config_path)
     # Evidence 校验与检索索引复用同一批 Document。
     documents = snapshot if config.get("evidence_evaluation", False) else None
     cases = load_evaluation_cases(
@@ -59,6 +61,11 @@ def run_query(args: argparse.Namespace) -> None:
         print(f"[{rank}] {result.chunk.chunk_id} score={result.score:.4f}")
         print(result.chunk.text[:500])
         print()
+
+
+def run_index_build(args: argparse.Namespace) -> None:
+    report = build_qdrant_index(Path(args.config), rebuild=args.rebuild)
+    print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
 def run_answer(args: argparse.Namespace) -> None:
@@ -144,7 +151,7 @@ def run_answer_benchmark(args: argparse.Namespace) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """声明四个子命令及其参数，并用 handler 绑定对应执行函数。"""
+    """声明子命令及其参数，并用 handler 绑定对应执行函数。"""
 
     parser = argparse.ArgumentParser(description="DomainRAG retrieval benchmark")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -158,6 +165,11 @@ def build_parser() -> argparse.ArgumentParser:
     query.add_argument("--config", required=True)
     query.add_argument("--question", required=True)
     query.set_defaults(handler=run_query)
+
+    index_build = subparsers.add_parser("index-build", help="explicitly build a Qdrant Local index")
+    index_build.add_argument("--config", required=True)
+    index_build.add_argument("--rebuild", action="store_true", help="replace a stale managed collection")
+    index_build.set_defaults(handler=run_index_build)
 
     answer = subparsers.add_parser("answer", help="retrieve and generate an answer")
     answer.add_argument("--config", required=True)
@@ -208,9 +220,13 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
-    args = build_parser().parse_args()
+    parser = build_parser()
+    args = parser.parse_args()
     # set_defaults(handler=...) 让这里无需再写一大段 if/elif 判断命令名。
-    args.handler(args)
+    try:
+        args.handler(args)
+    except QdrantIndexError as exc:
+        parser.exit(2, f"{exc}\n")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,19 @@
+{
+  "retriever": "qdrant",
+  "docs_path": "data/railway",
+  "eval_path": "data/railway/eval_dev.jsonl",
+  "chunk_size": 420,
+  "chunk_overlap": 80,
+  "top_k": 3,
+  "embedding": {
+    "model": "BAAI/bge-small-zh-v1.5",
+    "model_revision": "7999e1d3359715c523056ef9478215996d62a620",
+    "query_instruction": "为这个句子生成表示以用于检索相关文章：",
+    "batch_size": 32
+  },
+  "qdrant": {
+    "path": ".qdrant/railway-dev",
+    "collection": "railway_dev_bge"
+  },
+  "evidence_evaluation": true
+}

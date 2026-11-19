@@ -44,6 +44,18 @@ python -m venv .venv
 - **检索**支持 BM25、BGE、BM25 + BGE 的 RRF 融合，以及 Cross-Encoder 重排。调试页显示命中片段、来源、排名与分数。 [代码分层与检索链路](docs/代码分层与阅读导航.md)
 - **问答**支持纯 RAG、原生 Agent 和 LangGraph Agent V1。纯 RAG 先检索再生成，Agent 可主动发起检索或补读原文。结果中的引用可以回查到相应证据。 [架构与数据流说明](docs/架构与数据流说明.md)
 
+### Qdrant Local 持久化检索
+
+从仓库根目录运行以下命令。首次建库把现有 BGE 文档向量写入本地数据库。后续启动校验并复用索引，每次检索只编码问题。
+
+```powershell
+python -m pip install -e ".[embedding,qdrant]"
+python -m domainrag.cli index-build --config configs/railway_dev_qdrant.json
+python -m domainrag.cli query --config configs/railway_dev_qdrant.json --question "改签后可以退票吗？"
+```
+
+同一索引也可用于 BM25 + Qdrant → RRF → Cross-Encoder。安装 `.[reranker]` 后，在查询命令中选用 `configs/railway_dev_hybrid_qdrant_reranker.json`。BGE 内存基线可通过 `configs/railway_dev_embedding.json` 运行。索引失效时，在 `index-build` 命令末尾添加 `--rebuild`。 [索引生命周期与性能复现](docs/架构与数据流说明.md#qdrant-local-v1)
+
 ## 评测与复现
 
 铁路 Dev 集共 10 题，其中 8 题可回答、2 题用于观察证据不足的情况。检索评测同时统计来源命中和原文证据覆盖。四种检索策略在同一份知识库上比较，V2-auto 使用 AI 辅助审核的 Silver 标签，对已保存的排名重新评分。

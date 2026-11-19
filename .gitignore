@@ -5,6 +5,7 @@ __pycache__/
 *.egg-info/
 .env
 .env.*
+/.qdrant/
 # New query traces and reports are local outputs; keep the empty directory marker.
 results/*
 !results/.gitkeep
